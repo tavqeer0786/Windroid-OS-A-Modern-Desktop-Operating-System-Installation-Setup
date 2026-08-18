@@ -1,0 +1,72 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1920 1080" width="100%" height="100%" preserveAspectRatio="xMidYMid slice">
+  <defs>
+    <!-- Dark Purple Cosmic Background -->
+    <radialGradient id="bgPurple" cx="50%" cy="50%" r="75%">
+      <stop offset="0%" stop-color="#1B122C"/>
+      <stop offset="50%" stop-color="#0E0818"/>
+      <stop offset="100%" stop-color="#05030A"/>
+    </radialGradient>
+
+    <!-- Warm Neon Inner Core Glow -->
+    <radialGradient id="coreGlow" cx="48%" cy="52%" r="35%">
+      <stop offset="0%" stop-color="#FF7B54"/>
+      <stop offset="35%" stop-color="#FF3E6C"/>
+      <stop offset="70%" stop-color="#9B2677"/>
+      <stop offset="100%" stop-color="#1B122C" stop-opacity="0"/>
+    </radialGradient>
+
+    <!-- Outer Lavender Ribbon Gradient -->
+    <linearGradient id="ribbonOuter" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#C2B8E0"/>
+      <stop offset="40%" stop-color="#8F81C7"/>
+      <stop offset="80%" stop-color="#554499"/>
+      <stop offset="100%" stop-color="#2B1D59"/>
+    </linearGradient>
+
+    <!-- Mid Shadow Ribbon Gradient -->
+    <linearGradient id="ribbonInnerShadow" x1="100%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#7362B0"/>
+      <stop offset="50%" stop-color="#3A2973"/>
+      <stop offset="100%" stop-color="#150B33"/>
+    </linearGradient>
+
+    <!-- Warm Highlight Reflection -->
+    <linearGradient id="warmRim" x1="0%" y1="100%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#FF8A50"/>
+      <stop offset="50%" stop-color="#FF4D79"/>
+      <stop offset="100%" stop-color="#8F81C7" stop-opacity="0"/>
+    </linearGradient>
+
+    <filter id="bloomBlur" x="-30%" y="-30%" width="160%" height="160%">
+      <feGaussianBlur stdDeviation="40"/>
+    </filter>
+  </defs>
+
+  <!-- Background -->
+  <rect width="1920" height="1080" fill="url(#bgPurple)"/>
+
+  <!-- Core Radiant Glow -->
+  <circle cx="960" cy="540" r="480" fill="url(#coreGlow)"/>
+
+  <!-- Centered 3D Spiraling Torus Bloom Group -->
+  <g transform="translate(960, 540)">
+    <!-- Outer Spiral Shell Base -->
+    <path d="M -280,-100 C -420,120 -320,380 -80,420 C 180,460 420,320 440,50 C 460,-220 220,-420 -80,-400 C -340,-380 -480,-140 -400,120 C -340,320 -120,360 80,310 C 260,260 350,80 290,-100 C 230,-260 40,-300 -120,-240" 
+          fill="none" stroke="url(#ribbonOuter)" stroke-width="140" stroke-linecap="round"/>
+
+    <!-- Inner Smooth Torus Form -->
+    <path d="M -220,-80 C -340,90 -260,300 -60,330 C 140,360 330,250 350,40 C 370,-170 180,-330 -60,-310 C -260,-290 -360,-100 -300,100 C -250,250 -80,280 80,240 C 210,200 280,60 230,-80 C 180,-200 30,-230 -90,-180" 
+          fill="none" stroke="url(#ribbonInnerShadow)" stroke-width="80" stroke-linecap="round"/>
+
+    <!-- Inner Core Warm Radiance Overlay -->
+    <ellipse cx="20" cy="50" rx="180" ry="220" fill="url(#coreGlow)" opacity="0.85"/>
+
+    <!-- Spiral Lip Warm Rim Accent -->
+    <path d="M -120,40 C -80,180 80,260 200,150 C 280,80 260,-80 180,-160 C 100,-240 -80,-200 -160,-80" 
+          fill="none" stroke="url(#warmRim)" stroke-width="24" stroke-linecap="round"/>
+
+    <!-- Crisp Highlighting Contour -->
+    <path d="M -250,-110 C -370,80 -280,330 -50,370 C 170,410 380,280 400,30" 
+          fill="none" stroke="#E2DBF8" stroke-width="6" stroke-linecap="round" opacity="0.6"/>
+  </g>
+</svg>

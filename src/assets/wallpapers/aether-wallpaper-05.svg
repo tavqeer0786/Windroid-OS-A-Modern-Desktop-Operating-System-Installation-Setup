@@ -1,0 +1,50 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1920 1080" width="100%" height="100%" preserveAspectRatio="xMidYMid slice">
+  <defs>
+    <!-- Slate Gray/Blue Background -->
+    <linearGradient id="bgSlate" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#6F8391"/>
+      <stop offset="50%" stop-color="#556673"/>
+      <stop offset="100%" stop-color="#3B4954"/>
+    </linearGradient>
+
+    <!-- Crimson Red Main Wave -->
+    <linearGradient id="silkRed" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#FF5D47"/>
+      <stop offset="40%" stop-color="#E82A1B"/>
+      <stop offset="80%" stop-color="#A81207"/>
+      <stop offset="100%" stop-color="#5E0600"/>
+    </linearGradient>
+
+    <!-- Translucent Teal Shadow -->
+    <linearGradient id="silkTeal" x1="100%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#5DA1A8" stop-opacity="0.85"/>
+      <stop offset="50%" stop-color="#2D6068" stop-opacity="0.9"/>
+      <stop offset="100%" stop-color="#143338" stop-opacity="0.95"/>
+    </linearGradient>
+
+    <!-- Highlight Coral Curve -->
+    <linearGradient id="silkCoral" x1="0%" y1="100%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#FFA899"/>
+      <stop offset="100%" stop-color="#FF412B"/>
+    </linearGradient>
+  </defs>
+
+  <!-- Background -->
+  <rect width="1920" height="1080" fill="url(#bgSlate)"/>
+
+  <!-- Large Layered Translucent Teal Ribbons (Background) -->
+  <path d="M -100,200 C 300,-100 700,500 1100,100 C 1500,-300 1800,400 2100,200 L 2100,1200 L -100,1200 Z" 
+        fill="url(#silkTeal)"/>
+
+  <!-- Primary Sweeping Crimson Red Silk Ribbon Waves -->
+  <path d="M -200,900 C 200,1100 500,400 900,100 C 1200,-120 1500,200 1900,-100 L 2100,-100 L 2100,1200 L -200,1200 Z" 
+        fill="url(#silkRed)"/>
+
+  <!-- Secondary Overlapping Coral Translucent Fold -->
+  <path d="M -100,-200 C 200,300 600,-100 1000,500 C 1400,1100 1700,200 2000,600 L 2000,1200 L -100,1200 Z" 
+        fill="url(#silkCoral)" opacity="0.88"/>
+
+  <!-- Highlight Edge Ribbon Line -->
+  <path d="M 100,950 C 420,1120 680,480 1020,180 C 1280,-40 1520,240 1880,-40" 
+        fill="none" stroke="#FFD8D1" stroke-width="6" stroke-linecap="round" opacity="0.9"/>
+</svg>

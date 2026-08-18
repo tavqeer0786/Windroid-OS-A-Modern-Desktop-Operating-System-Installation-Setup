@@ -1,0 +1,8 @@
+{
+  "name": "Windroid-OS-A-Modern-Desktop-Operating-System-Installation",
+  "description": "Windroid OS is a modern desktop operating system built for a fast, clean and seamless computing experience, combining powerful desktop workflows, native system controls and a refined user interface.",
+  "requestFramePermissions": [],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}

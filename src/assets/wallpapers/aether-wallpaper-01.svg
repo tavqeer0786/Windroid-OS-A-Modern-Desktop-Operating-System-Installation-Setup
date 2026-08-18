@@ -1,0 +1,68 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1920 1080" width="100%" height="100%" preserveAspectRatio="xMidYMid slice">
+  <defs>
+    <linearGradient id="skyGrad" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#8DB0D3"/>
+      <stop offset="55%" stop-color="#B8D2E9"/>
+      <stop offset="100%" stop-color="#D0E3F3"/>
+    </linearGradient>
+
+    <linearGradient id="facetBlue1" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#3B99FC"/>
+      <stop offset="100%" stop-color="#1A6ED4"/>
+    </linearGradient>
+
+    <linearGradient id="facetBlue2" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#1A73E8"/>
+      <stop offset="100%" stop-color="#0F4BA6"/>
+    </linearGradient>
+
+    <linearGradient id="facetBlue3" x1="100%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#1257C2"/>
+      <stop offset="100%" stop-color="#0B337A"/>
+    </linearGradient>
+
+    <linearGradient id="facetBlueDark" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#0F3C8A"/>
+      <stop offset="100%" stop-color="#081F4B"/>
+    </linearGradient>
+
+    <linearGradient id="facetBlueLight" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#62ADFC"/>
+      <stop offset="100%" stop-color="#2883F2"/>
+    </linearGradient>
+
+    <filter id="softGlow" x="-20%" y="-20%" width="140%" height="140%">
+      <feGaussianBlur stdDeviation="30" result="blur"/>
+      <feComposite in="SourceGraphic" in2="blur" operator="over"/>
+    </filter>
+  </defs>
+
+  <!-- Sky Background -->
+  <rect width="1920" height="1080" fill="url(#skyGrad)"/>
+
+  <!-- Subtle Atmospheric Sun Glow -->
+  <circle cx="1000" cy="500" r="450" fill="#EBF3FB" opacity="0.4" filter="url(#softGlow)"/>
+
+  <!-- Far Left Small Peaks -->
+  <polygon points="-100,1080 280,740 450,1080" fill="url(#facetBlue3)"/>
+  <polygon points="-100,1080 280,740 -100,820" fill="url(#facetBlue1)"/>
+
+  <!-- Left Main Peak -->
+  <polygon points="0,1080 240,740 520,1080" fill="url(#facetBlueLight)"/>
+  <polygon points="240,740 520,1080 440,1080" fill="url(#facetBlue2)"/>
+  <polygon points="240,740 440,1080 240,1080" fill="url(#facetBlueDark)"/>
+
+  <!-- Central High Pyramid Peak -->
+  <polygon points="220,1080 1020,510 1180,1080" fill="url(#facetBlue1)"/>
+  <polygon points="1020,510 1180,1080 1280,1080" fill="url(#facetBlue3)"/>
+  <polygon points="1020,510 430,950 220,1080" fill="url(#facetBlueLight)"/>
+  <polygon points="1020,510 430,950 580,1080" fill="url(#facetBlue2)"/>
+
+  <!-- Right Main Peak Block -->
+  <polygon points="1100,1080 1380,740 1920,980" fill="url(#facetBlue2)"/>
+  <polygon points="1380,740 1920,980 1920,1080 1100,1080" fill="url(#facetBlueLight)"/>
+  <polygon points="1380,740 1780,1080 1920,1080" fill="url(#facetBlueDark)"/>
+
+  <!-- Far Right Dark Base Peak -->
+  <polygon points="1760,1080 1920,810 1920,1080" fill="url(#facetBlueDark)"/>
+</svg>

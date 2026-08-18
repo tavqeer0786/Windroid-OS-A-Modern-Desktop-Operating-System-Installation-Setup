@@ -1,0 +1,16 @@
+node_modules/
+build/
+dist/
+coverage/
+src-tauri/target/
+iso-builder/workspace/
+.DS_Store
+*.log
+.env*
+!.env.example
+
+# Python bytecode
+__pycache__/
+*.py[cod]
+*.pyo
+

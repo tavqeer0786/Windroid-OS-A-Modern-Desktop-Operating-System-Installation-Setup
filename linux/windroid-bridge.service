@@ -1,0 +1,17 @@
+[Unit]
+Description=Windroid Native System Bridge API Service
+After=network.target local-fs.target
+Before=lightdm.service display-manager.service windroid-first-boot.service
+Wants=local-fs.target
+
+[Service]
+Type=simple
+ExecStart=/usr/bin/python3 /usr/bin/windroid-bridge.py
+Restart=always
+RestartSec=2
+User=root
+WorkingDirectory=/root
+Environment=PYTHONUNBUFFERED=1
+
+[Install]
+WantedBy=multi-user.target graphical.target

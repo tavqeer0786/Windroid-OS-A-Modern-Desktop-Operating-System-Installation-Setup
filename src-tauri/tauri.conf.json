@@ -1,0 +1,60 @@
+{
+  "$schema": "https://raw.githubusercontent.com/tauri-apps/tauri/dev/tooling/cli/schema.json",
+  "build": {
+    "beforeDevCommand": "npm run dev",
+    "beforeBuildCommand": "npm run build",
+    "devPath": "http://localhost:3000",
+    "distDir": "../dist"
+  },
+  "package": {
+    "productName": "Windroid OS Desktop",
+    "version": "1.0.0"
+  },
+  "tauri": {
+    "allowlist": {
+      "all": false,
+      "shell": {
+        "all": false,
+        "execute": false,
+        "sidecar": false,
+        "open": true
+      }
+    },
+    "bundle": {
+      "active": true,
+      "targets": ["deb", "appimage"],
+      "identifier": "com.windroid.desktop",
+      "icon": [
+        "icons/32x32.png",
+        "icons/128x128.png",
+        "icons/128x128@2x.png",
+        "icons/icon.icns",
+        "icons/icon.ico"
+      ],
+      "resources": [],
+      "externalBin": [],
+      "copyright": "Copyright 2026 Windroid OS Team",
+      "category": "Utility",
+      "shortDescription": "Windroid OS Desktop Shell",
+      "longDescription": "Standalone lightweight desktop shell environment for Windroid OS running on Debian Live."
+    },
+    "security": {
+      "csp": null
+    },
+    "windows": [
+      {
+        "title": "Windroid OS",
+        "width": 1280,
+        "height": 800,
+        "minWidth": 800,
+        "minHeight": 600,
+        "resizable": true,
+        "fullscreen": true,
+        "decorations": false,
+        "transparent": false,
+        "center": true,
+        "alwaysOnTop": false
+      }
+    ]
+  }
+}

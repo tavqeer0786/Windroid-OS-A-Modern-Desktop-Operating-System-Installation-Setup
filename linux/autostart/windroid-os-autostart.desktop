@@ -1,0 +1,10 @@
+[Desktop Entry]
+Type=Application
+Name=Windroid OS Live Autostart
+Comment=Automatically launch Windroid OS Desktop Shell on Debian Live login
+Exec=sh -c "pgrep -f windroid-shell-runner.sh >/dev/null || /usr/bin/windroid-shell-runner.sh"
+Icon=windroid-os
+Terminal=false
+NoDisplay=true
+X-GNOME-Autostart-enabled=true
+X-GNOME-Autostart-Delay=1

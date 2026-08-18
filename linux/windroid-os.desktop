@@ -1,0 +1,11 @@
+[Desktop Entry]
+Type=Application
+Name=Windroid OS Desktop Shell
+Comment=Lightweight Desktop Environment Shell for Windroid OS
+Exec=/usr/bin/windroid-shell-runner.sh
+Icon=windroid-os
+Categories=System;Utility;Core;
+Terminal=false
+StartupNotify=true
+X-GNOME-Autostart-enabled=true
+X-KDE-autostart-after=panel

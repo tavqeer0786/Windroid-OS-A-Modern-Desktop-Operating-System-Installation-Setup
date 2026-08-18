@@ -1,0 +1,15 @@
+# Openbox Autostart for Windroid OS Live Desktop Session
+
+# Set default screen resolution if needed
+xrandr -s 1280x800 2>/dev/null || true
+
+# Start D-Bus session if needed
+if [ -z "$DBUS_SESSION_BUS_ADDRESS" ]; then
+    eval $(dbus-launch --sh-syntax --exit-with-session)
+fi
+
+# Set background wallpaper / root background color
+xsetroot -solid "#0f172a" 2>/dev/null || true
+
+# Launch Windroid Shell Watchdog in background
+/usr/bin/windroid-shell-runner.sh &
