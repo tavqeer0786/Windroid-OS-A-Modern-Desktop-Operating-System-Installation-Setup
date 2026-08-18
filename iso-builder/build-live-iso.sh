@@ -287,6 +287,15 @@ if [ -f "$SHELL_BIN" ]; then
     chmod +x config/includes.chroot/usr/bin/windroid-desktop
 fi
 
+# Copy Authoritative State Management Module
+mkdir -p config/includes.chroot/usr/lib/windroid
+if [ -f "${PROJECT_ROOT}/linux/windroid_state.py" ]; then
+    cp "${PROJECT_ROOT}/linux/windroid_state.py" config/includes.chroot/usr/lib/windroid/windroid_state.py
+    cp "${PROJECT_ROOT}/linux/windroid_state.py" config/includes.chroot/usr/bin/windroid_state.py
+    chmod 644 config/includes.chroot/usr/lib/windroid/windroid_state.py
+    chmod +x config/includes.chroot/usr/bin/windroid_state.py
+fi
+
 # Copy Native System Bridge
 if [ -f "${PROJECT_ROOT}/linux/windroid-bridge.py" ]; then
     cp "${PROJECT_ROOT}/linux/windroid-bridge.py" config/includes.chroot/usr/bin/windroid-bridge.py
@@ -355,6 +364,8 @@ if [ -d /etc/apt/sources.list.d ]; then
 fi
 
 # Permissions setup
+chmod +x /usr/bin/windroid_state.py 2>/dev/null || true
+chmod 644 /usr/lib/windroid/windroid_state.py 2>/dev/null || true
 chmod +x /usr/bin/windroid-bridge.py 2>/dev/null || true
 chmod +x /usr/bin/windroid-first-boot.py 2>/dev/null || true
 chmod +x /usr/bin/windroid-shell-runner.sh 2>/dev/null || true

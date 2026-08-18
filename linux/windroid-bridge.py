@@ -22,6 +22,19 @@ from http.server import HTTPServer, ThreadingHTTPServer, BaseHTTPRequestHandler
 from urllib.parse import parse_qs, urlparse
 import re
 
+# Ensure local and standard windroid module paths are in sys.path
+_MODULE_DIRS = [
+    os.path.dirname(os.path.abspath(__file__)),
+    "/usr/lib/windroid",
+    "/usr/lib/python3/dist-packages",
+    "/usr/bin"
+]
+for _d in _MODULE_DIRS:
+    if _d not in sys.path and os.path.exists(_d):
+        sys.path.insert(0, _d)
+
+import windroid_state
+
 HOST = "127.0.0.1"
 PORT = 4174
 
@@ -293,481 +306,49 @@ def get_boot_mode():
             pass
     return "live" if is_live_system() else "installed"
 
-INSTALLER_STATE_FILE = "/var/lib/windroid/installer-state.json"
-STATE_VERSION = "windroid-installer-state-v1"
-
-VALID_STATES = [
-    "INSTALLER",
-    "INSTALLATION_IN_PROGRESS",
-    "INSTALLATION_COMPLETE",
-    "OOBE_PENDING",
-    "OOBE_IN_PROGRESS",
-    "OOBE_COMPLETE",
-    "DESKTOP_READY",
-    "FAILED"
-]
-
-ALLOWED_STATE_TRANSITIONS = {
-    "INSTALLER": ["INSTALLER", "INSTALLATION_IN_PROGRESS", "FAILED"],
-    "INSTALLATION_IN_PROGRESS": ["INSTALLATION_IN_PROGRESS", "INSTALLATION_COMPLETE", "FAILED"],
-    "INSTALLATION_COMPLETE": ["INSTALLATION_COMPLETE", "OOBE_PENDING", "FAILED"],
-    "OOBE_PENDING": ["OOBE_PENDING", "OOBE_IN_PROGRESS", "FAILED"],
-    "OOBE_IN_PROGRESS": ["OOBE_IN_PROGRESS", "OOBE_COMPLETE", "FAILED"],
-    "OOBE_COMPLETE": ["OOBE_COMPLETE", "DESKTOP_READY", "FAILED"],
-    "DESKTOP_READY": ["DESKTOP_READY", "FAILED"],
-    "FAILED": ["INSTALLER", "FAILED"]
-}
+INSTALLER_STATE_FILE = windroid_state.PRIMARY_STATE_FILE
+BACKUP_STATE_FILE = windroid_state.BACKUP_STATE_FILE
+STATE_VERSION = windroid_state.STATE_VERSION
+VALID_STATES = windroid_state.VALID_STATES
+ALLOWED_STATE_TRANSITIONS = windroid_state.ALLOWED_STATE_TRANSITIONS
+RESERVED_SYSTEM_USERNAMES = windroid_state.RESERVED_SYSTEM_USERNAMES
 
 def is_valid_state_transition(from_state: str, to_state: str) -> bool:
-    if not from_state or from_state not in ALLOWED_STATE_TRANSITIONS:
-        return to_state in VALID_STATES
-    return to_state in ALLOWED_STATE_TRANSITIONS.get(from_state, [])
-
-RESERVED_SYSTEM_USERNAMES = {
-    "root", "bin", "daemon", "sys", "sync", "games", "man", "lp", "mail", "news",
-    "uucp", "proxy", "www-data", "backup", "list", "irc", "gnats", "nobody",
-    "systemd-network", "systemd-resolve", "messagebus", "systemd-timesync",
-    "avahi-autoipd", "avahi", "usbmux", "dnsmasq", "kdm", "gdm", "lightdm",
-    "nodm", "desktop", "guest", "live", "user", "windroid-pc", "windroid-oobe"
-}
+    return windroid_state.is_valid_state_transition(from_state, to_state)
 
 def validate_native_installer_state_data(data: dict) -> tuple[bool, str | None]:
-    if not isinstance(data, dict):
-        return False, "State data must be a dictionary"
-
-    if data.get("version") != STATE_VERSION:
-        return False, f"Invalid version: '{data.get('version')}', expected '{STATE_VERSION}'"
-
-    state = data.get("state")
-    if state not in VALID_STATES:
-        return False, f"Invalid state: '{state}'"
-
-    # 0. INSTALLER
-    if state == "INSTALLER":
-        if data.get("installationCompleted") is True:
-            return False, "installationCompleted must be false for INSTALLER state"
-        if data.get("oobeCompleted") is True:
-            return False, "oobeCompleted must be false for INSTALLER state"
-        if data.get("userConfig") is not None:
-            return False, "userConfig must be null for INSTALLER state"
-        return True, None
-
-    # 1. INSTALLATION_IN_PROGRESS
-    if state == "INSTALLATION_IN_PROGRESS":
-        if data.get("userConfig") is not None:
-            return False, "userConfig must be null during INSTALLATION_IN_PROGRESS"
-        if data.get("installationCompleted") is True:
-            return False, "installationCompleted must be false during INSTALLATION_IN_PROGRESS"
-        if data.get("oobeCompleted") is True:
-            return False, "oobeCompleted must be false during INSTALLATION_IN_PROGRESS"
-        return True, None
-
-    # 2. OOBE_PENDING / INSTALLATION_COMPLETE
-    if state in ["OOBE_PENDING", "INSTALLATION_COMPLETE"]:
-        if data.get("userConfig") is not None:
-            return False, f"userConfig must be null in {state} state before user registration"
-        if data.get("installationCompleted") is not True:
-            return False, f"installationCompleted must be true for {state}"
-        if data.get("oobeCompleted") is True:
-            return False, f"oobeCompleted must be false for {state}"
-        if not (data.get("installationCompletedAt") or data.get("completedAt") or data.get("updatedAt")):
-            return False, f"Timestamp (installationCompletedAt) must be present for {state}"
-        if data.get("error") is not None:
-            return False, f"error must be null for {state}"
-        return True, None
-
-    # 3. OOBE_IN_PROGRESS
-    if state == "OOBE_IN_PROGRESS":
-        if data.get("userConfig") is not None:
-            return False, "userConfig must be null during OOBE_IN_PROGRESS before user completion"
-        if data.get("installationCompleted") is not True:
-            return False, "installationCompleted must be true for OOBE_IN_PROGRESS"
-        if data.get("oobeCompleted") is True:
-            return False, "oobeCompleted must be false during OOBE_IN_PROGRESS"
-        if data.get("error") is not None:
-            return False, "error must be null for OOBE_IN_PROGRESS"
-        return True, None
-
-    # 4. OOBE_COMPLETE / DESKTOP_READY
-    if state in ["OOBE_COMPLETE", "DESKTOP_READY"]:
-        if data.get("installationCompleted") is not True:
-            return False, f"installationCompleted must be true for {state}"
-        if data.get("oobeCompleted") is not True:
-            return False, f"oobeCompleted must be true for {state}"
-        u_cfg = data.get("userConfig")
-        if not isinstance(u_cfg, dict):
-            return False, f"userConfig must be a valid dictionary for {state}"
-        username = str(u_cfg.get("username", "")).strip()
-        if not username or username == "windroid-oobe" or username in RESERVED_SYSTEM_USERNAMES:
-            return False, f"userConfig contains invalid or reserved username: '{username}'"
-        if not re.match(r'^[a-z_][a-z0-9_-]*$', username):
-            return False, f"userConfig username '{username}' does not match required format"
-        if not (data.get("oobeCompletedAt") or data.get("completedAt") or data.get("updatedAt")):
-            return False, f"Timestamp (oobeCompletedAt or completedAt) must be present for {state}"
-        if data.get("error") is not None:
-            return False, f"error must be null for {state}"
-        return True, None
-
-    # 5. FAILED
-    if state == "FAILED":
-        return True, None
-
-    return True, None
+    return windroid_state.validate_state_data(data)
 
 def validate_desktop_ready(data: dict, check_system: bool = False) -> tuple[bool, str | None]:
-    """
-    Formally validates all invariants for DESKTOP_READY state:
-    1. State data is a dictionary
-    2. State is 'DESKTOP_READY'
-    3. installationCompleted is True
-    4. oobeCompleted is True
-    5. userConfig is a valid dictionary
-    6. username is non-empty, non-reserved, and valid linux username format
-    7. username is not root and not windroid-oobe
-    8. error is None
-    9. timestamp is present
-    When check_system is True:
-    10. Real user exists in system (getent passwd)
-    11. Real user UID >= 1000
-    12. User home directory (/home/<username>) exists
-    13. User home directory is owned by the real user
-    14. User's login shell is valid/executable
-    15. User belongs to essential groups
-    16. LightDM autologin configuration exists at /etc/lightdm/lightdm.conf.d/80-windroid-autologin.conf
-    17. LightDM autologin configuration explicitly specifies autologin-user=<username>
-    18. LightDM autologin configuration does not specify windroid-oobe
-    19. OOBE autologin config (80-windroid-oobe.conf) is absent
-    20. Live autologin config (80-windroid-live-autologin.conf) is absent
-    """
-    if not isinstance(data, dict):
-        return False, "State data must be a dictionary"
-    
-    if data.get("state") != "DESKTOP_READY":
-        return False, f"Expected state 'DESKTOP_READY', got '{data.get('state')}'"
-    
-    if data.get("installationCompleted") is not True:
-        return False, "installationCompleted must be true for DESKTOP_READY"
-        
-    if data.get("oobeCompleted") is not True:
-        return False, "oobeCompleted must be true for DESKTOP_READY"
-
-    if data.get("error") is not None:
-        return False, "error must be null for DESKTOP_READY"
-
-    if not (data.get("oobeCompletedAt") or data.get("completedAt") or data.get("updatedAt")):
-        return False, "Timestamp must be present for DESKTOP_READY"
-        
-    u_cfg = data.get("userConfig")
-    if not isinstance(u_cfg, dict):
-        return False, "userConfig must be a valid dictionary"
-        
-    username = str(u_cfg.get("username", "")).strip()
-    if not username or username == "windroid-oobe" or username in RESERVED_SYSTEM_USERNAMES:
-        return False, f"Invalid or reserved username '{username}'"
-        
-    if not re.match(r'^[a-z_][a-z0-9_-]*$', username):
-        return False, f"Username '{username}' contains invalid characters"
-
-    if check_system:
-        ok_getent, out_getent, _ = run_command(["getent", "passwd", username])
-        if not ok_getent or not out_getent.strip():
-            return False, f"Real user '{username}' does not exist in passwd database"
-        
-        parts = out_getent.strip().split(":")
-        if len(parts) >= 7:
-            try:
-                uid = int(parts[2])
-                if uid < 1000 and username != "root":
-                    return False, f"User '{username}' has system UID {uid} (< 1000)"
-            except ValueError:
-                pass
-            
-            user_home = parts[5]
-            user_shell = parts[6]
-            
-            if not os.path.exists(user_home):
-                return False, f"User home directory '{user_home}' does not exist"
-                
-            try:
-                st = os.stat(user_home)
-                if uid >= 1000 and st.st_uid != uid and os.geteuid() == 0:
-                    return False, f"User home '{user_home}' is not owned by user {uid}"
-            except Exception:
-                pass
-
-            if user_shell and not os.path.exists(user_shell) and not os.path.exists("/bin/sh"):
-                return False, f"User login shell '{user_shell}' does not exist"
-        else:
-            user_home = f"/home/{username}"
-            if not os.path.exists(user_home):
-                return False, f"User home directory '{user_home}' does not exist"
-            
-        lightdm_conf = "/etc/lightdm/lightdm.conf.d/80-windroid-autologin.conf"
-        if not os.path.exists(lightdm_conf):
-            return False, f"LightDM autologin config '{lightdm_conf}' does not exist"
-            
-        try:
-            with open(lightdm_conf, "r", encoding="utf-8") as f:
-                content = f.read()
-                if f"autologin-user={username}" not in content:
-                    return False, f"LightDM autologin is not set to '{username}'"
-                if "autologin-user=windroid-oobe" in content:
-                    return False, "LightDM autologin still contains temporary user 'windroid-oobe'"
-        except Exception as e:
-            return False, f"Failed to read LightDM config: {e}"
-
-        oobe_conf = "/etc/lightdm/lightdm.conf.d/80-windroid-oobe.conf"
-        if os.path.exists(oobe_conf):
-            return False, f"Obsolete OOBE config '{oobe_conf}' still exists"
-
-        live_conf = "/etc/lightdm/lightdm.conf.d/80-windroid-live-autologin.conf"
-        if os.path.exists(live_conf):
-            return False, f"Obsolete Live autologin config '{live_conf}' still exists"
-
-    return True, None
+    return windroid_state.validate_desktop_ready(data, check_system=check_system)
 
 def _write_single_state_file_atomic(file_path: str, data: dict) -> bool:
-    """Internal helper to atomically write, flush, fsync, and replace a single state file."""
-    dir_path = os.path.dirname(file_path)
-    os.makedirs(dir_path, exist_ok=True)
-    tmp_path = file_path + ".tmp"
     try:
-        payload = json.dumps(data, indent=2)
-        with open(tmp_path, "w", encoding="utf-8") as f:
-            f.write(payload)
-            f.flush()
-            os.fsync(f.fileno())
-        os.chmod(tmp_path, 0o644)
-        os.replace(tmp_path, file_path)
-        os.chmod(file_path, 0o644)
-
-        try:
-            dir_fd = os.open(dir_path, os.O_DIRECTORY)
-            try:
-                os.fsync(dir_fd)
-            finally:
-                os.close(dir_fd)
-        except Exception:
-            pass
+        windroid_state._write_single_file_atomic(file_path, data)
         return True
     except Exception as e:
         _log_installer(f"Error atomically writing state file {file_path}: {e}")
-        if os.path.exists(tmp_path):
-            try:
-                os.remove(tmp_path)
-            except Exception:
-                pass
         return False
 
 def load_native_installer_state(target_root="/"):
-    primary_filepath = os.path.join(target_root, "var/lib/windroid/installer-state.json")
-    backup_filepath = os.path.join(target_root, "var/lib/windroid/installation-state.json")
-
-    p_data = None
-    p_valid = False
-    p_gen = 0
-
-    b_data = None
-    b_valid = False
-    b_gen = 0
-
-    # 1. Read and validate Primary
-    if os.path.exists(primary_filepath):
-        try:
-            with open(primary_filepath, "r", encoding="utf-8") as f:
-                p_data = json.load(f)
-                valid, err = validate_native_installer_state_data(p_data)
-                if valid:
-                    p_valid = True
-                    p_gen = int(p_data.get("generation", 0) or 0)
-                else:
-                    _log_installer(f"Warning: Primary state file {primary_filepath} failed validation: {err}")
-        except Exception as e:
-            _log_installer(f"Failed to read native installer primary state file {primary_filepath}: {e}")
-
-    # 2. Read and validate Backup
-    if os.path.exists(backup_filepath):
-        try:
-            with open(backup_filepath, "r", encoding="utf-8") as f:
-                b_data = json.load(f)
-                valid, err = validate_native_installer_state_data(b_data)
-                if valid:
-                    b_valid = True
-                    b_gen = int(b_data.get("generation", 0) or 0)
-                else:
-                    _log_installer(f"Warning: Backup state file {backup_filepath} failed validation: {err}")
-        except Exception as e:
-            _log_installer(f"Failed to read native installer backup state file {backup_filepath}: {e}")
-
-    # 3. Decision Matrix with Self-Healing
-    if p_valid and b_valid:
-        if b_gen > p_gen:
-            _log_installer(f"Self-Healing: Backup state has higher generation ({b_gen} > {p_gen}), recovering primary.")
-            _write_single_state_file_atomic(primary_filepath, b_data)
-            res = dict(b_data)
-            res["success"] = True
-            return res
-        elif p_gen > b_gen:
-            _log_installer(f"Self-Healing: Primary state has higher generation ({p_gen} > {b_gen}), updating backup.")
-            _write_single_state_file_atomic(backup_filepath, p_data)
-            res = dict(p_data)
-            res["success"] = True
-            return res
-        else:
-            res = dict(p_data)
-            res["success"] = True
-            return res
-
-    elif p_valid and not b_valid:
-        _log_installer(f"Self-Healing: Primary state valid, recovering corrupt/missing backup {backup_filepath}.")
-        _write_single_state_file_atomic(backup_filepath, p_data)
-        res = dict(p_data)
-        res["success"] = True
-        return res
-
-    elif b_valid and not p_valid:
-        _log_installer(f"Self-Healing: Backup state valid, recovering corrupt/missing primary {primary_filepath} (state: {b_data.get('state')}).")
-        _write_single_state_file_atomic(primary_filepath, b_data)
-        res = dict(b_data)
-        res["success"] = True
-        return res
-
-    # 4. Default state based on runtime environment
-    is_live = is_live_system() if target_root == "/" else False
-    if is_live:
-        return {
-            "success": True,
-            "version": STATE_VERSION,
-            "state": "INSTALLER",
-            "generation": 0,
-            "updatedAt": datetime.datetime.now(datetime.timezone.utc).isoformat(),
-            "targetDisk": None,
-            "localeConfig": {},
-            "userConfig": None,
-            "installationCompleted": False,
-            "installationCompletedAt": None,
-            "oobeCompleted": False,
-            "oobeCompletedAt": None,
-            "completedAt": None,
-            "error": None
-        }
-
-    return {
-        "success": False,
-        "version": STATE_VERSION,
-        "state": "FAILED",
-        "generation": 0,
-        "updatedAt": datetime.datetime.now(datetime.timezone.utc).isoformat(),
-        "error": f"Corrupted or missing state file at {primary_filepath}"
-    }
+    res = windroid_state.load_installer_state(target_root)
+    res_copy = dict(res)
+    res_copy["success"] = (res.get("state") != "FAILED" or not res.get("error"))
+    return res_copy
 
 def save_native_installer_state(target_root="/", state="OOBE_PENDING", data=None):
-    if state not in VALID_STATES:
-        raise ValueError(f"Invalid state: {state}")
+    extra = dict(data) if data else {}
+    if "userConfig" in extra and isinstance(extra["userConfig"], dict):
+        # Strip sensitive credentials from persisted state
+        u_cfg = dict(extra["userConfig"])
+        u_cfg.pop("password", None)
+        u_cfg.pop("confirmPassword", None)
+        extra["userConfig"] = u_cfg
 
-    dirpath = os.path.join(target_root, "var/lib/windroid")
-    os.makedirs(dirpath, exist_ok=True)
-    filepath = os.path.join(dirpath, "installer-state.json")
-    backuppath = os.path.join(dirpath, "installation-state.json")
-
-    existing = load_native_installer_state(target_root)
-    existing_state = existing.get("state")
-    if existing.get("success") and existing_state and not is_valid_state_transition(existing_state, state):
-        _log_installer(f"ERROR: Illegal state transition attempted from '{existing_state}' to '{state}'")
-        raise ValueError(f"Illegal state transition from '{existing_state}' to '{state}'")
-
-    now = datetime.datetime.now(datetime.timezone.utc).isoformat()
-
-    is_installed = state in ["INSTALLATION_COMPLETE", "OOBE_PENDING", "OOBE_IN_PROGRESS", "OOBE_COMPLETE", "DESKTOP_READY"]
-    is_oobe_done = state in ["OOBE_COMPLETE", "DESKTOP_READY"]
-
-    target_disk = (data or {}).get("targetDisk") or existing.get("targetDisk")
-    locale_cfg = (data or {}).get("localeConfig") or existing.get("localeConfig", {})
-
-    if state in ["INSTALLER", "INSTALLATION_IN_PROGRESS", "INSTALLATION_COMPLETE", "OOBE_PENDING"]:
-        user_cfg = None
-    elif state in ["OOBE_COMPLETE", "DESKTOP_READY"]:
-        user_cfg = (data or {}).get("userConfig") or existing.get("userConfig")
-    else:
-        user_cfg = (data or {}).get("userConfig") if (data and "userConfig" in data) else existing.get("userConfig")
-
-    if user_cfg and isinstance(user_cfg, dict):
-        user_cfg = dict(user_cfg)
-        user_cfg.pop("password", None)
-        user_cfg.pop("confirmPassword", None)
-
-    inst_completed_at = existing.get("installationCompletedAt") or ((data or {}).get("installationCompletedAt") if data else None)
-    if is_installed and not inst_completed_at:
-        inst_completed_at = now
-
-    oobe_completed_at = existing.get("oobeCompletedAt") or ((data or {}).get("oobeCompletedAt") if data else None)
-    if is_oobe_done and not oobe_completed_at:
-        oobe_completed_at = now
-
-    # Compute next monotonic generation
-    prev_gen = 0
-    for path_to_check in [filepath, backuppath]:
-        if os.path.exists(path_to_check):
-            try:
-                with open(path_to_check, "r", encoding="utf-8") as f:
-                    d = json.load(f)
-                    g = int(d.get("generation", 0) or 0)
-                    if g > prev_gen:
-                        prev_gen = g
-            except Exception:
-                pass
-
-    merged_data = {
-        "version": STATE_VERSION,
-        "state": state,
-        "generation": prev_gen + 1,
-        "updatedAt": now,
-        "targetDisk": target_disk,
-        "localeConfig": locale_cfg,
-        "userConfig": user_cfg,
-        "installationCompleted": is_installed,
-        "installationCompletedAt": inst_completed_at,
-        "oobeCompleted": is_oobe_done,
-        "oobeCompletedAt": oobe_completed_at,
-        "completedAt": oobe_completed_at if is_oobe_done else (inst_completed_at if is_installed else None),
-        "error": (data or {}).get("error") if state == "FAILED" else None
-    }
-
-    is_valid, val_err = validate_native_installer_state_data(merged_data)
-    if not is_valid:
-        _log_installer(f"ERROR: Generated invalid native installer state for '{state}': {val_err}")
-        raise ValueError(f"Invalid state data generated for '{state}': {val_err}")
-
-    # Write primary file atomically
-    ok_p = _write_single_state_file_atomic(filepath, merged_data)
-    if not ok_p:
-        raise RuntimeError(f"Failed to atomically write primary state file {filepath}")
-
-    # Write backup file atomically
-    ok_b = _write_single_state_file_atomic(backuppath, merged_data)
-    if not ok_b:
-        _log_installer(f"Warning: Failed to atomically write backup state file {backuppath}")
-
-    # Read-back verification
-    try:
-        with open(filepath, "r", encoding="utf-8") as f:
-            rb_primary = json.load(f)
-            rb_p_valid, rb_p_err = validate_native_installer_state_data(rb_primary)
-            if not rb_p_valid:
-                raise RuntimeError(f"Primary state read-back validation failed: {rb_p_err}")
-
-        with open(backuppath, "r", encoding="utf-8") as f:
-            rb_backup = json.load(f)
-            rb_b_valid, rb_b_err = validate_native_installer_state_data(rb_backup)
-            if not rb_b_valid:
-                raise RuntimeError(f"Backup state read-back validation failed: {rb_b_err}")
-    except Exception as e:
-        _log_installer(f"CRITICAL: State persistence read-back verification failed on {dirpath}: {e}")
-        raise RuntimeError(f"CRITICAL: State persistence read-back verification failed: {e}")
-
-    run_command(["sync"])
-    merged_data["success"] = True
-    return merged_data
+    res = windroid_state.save_installer_state_atomic(target_root, state, extra_fields=extra)
+    res_copy = dict(res)
+    res_copy["success"] = True
+    return res_copy
 
 def complete_oobe_impl(body: dict):
     username = str(body.get("username", "")).strip().lower()
@@ -4443,6 +4024,23 @@ def _run_native_installation_worker(plan: dict):
         # Step 5b: Install First-Boot Orchestrator, Bridge, and Systemd Services into Target (Rules #7, #8)
         _update_installer_status("in_progress", "configuring_system", "Installing first-boot orchestrator and systemd units...", 80)
         
+        # Install authoritative state management module
+        src_state = "/usr/lib/windroid/windroid_state.py"
+        if not os.path.exists(src_state):
+            src_state = "/usr/bin/windroid_state.py"
+        if not os.path.exists(src_state):
+            src_state = os.path.join(os.path.dirname(__file__), "windroid_state.py")
+
+        target_lib_state = os.path.join(target_mount, "usr/lib/windroid/windroid_state.py")
+        target_bin_state = os.path.join(target_mount, "usr/bin/windroid_state.py")
+        os.makedirs(os.path.dirname(target_lib_state), exist_ok=True)
+        os.makedirs(os.path.dirname(target_bin_state), exist_ok=True)
+        if os.path.exists(src_state):
+            shutil.copy2(src_state, target_lib_state)
+            shutil.copy2(src_state, target_bin_state)
+            os.chmod(target_lib_state, 0o644)
+            os.chmod(target_bin_state, 0o755)
+
         # Install first-boot script
         src_first_boot = "/usr/bin/windroid-first-boot.py"
         if not os.path.exists(src_first_boot):
@@ -4596,6 +4194,8 @@ def _run_native_installation_worker(plan: dict):
         has_shadow = os.path.exists(os.path.join(target_mount, "etc/shadow")) and os.path.getsize(os.path.join(target_mount, "etc/shadow")) > 0
         has_hostname = os.path.exists(os.path.join(target_mount, "etc/hostname")) and os.path.getsize(os.path.join(target_mount, "etc/hostname")) > 0
         has_first_boot = os.path.exists(target_first_boot) and os.path.getsize(target_first_boot) > 0 and os.access(target_first_boot, os.X_OK)
+        has_state_mod = (os.path.exists(target_lib_state) and os.path.getsize(target_lib_state) > 0) or \
+                        (os.path.exists(target_bin_state) and os.path.getsize(target_bin_state) > 0)
         has_shell_runner = os.path.exists(target_shell_runner) and os.path.getsize(target_shell_runner) > 0 and os.access(target_shell_runner, os.X_OK)
         has_first_boot_svc = os.path.exists(target_service) and os.path.getsize(target_service) > 0
         has_runtime_mode = os.path.exists(os.path.join(target_mount, "etc/windroid/runtime-mode"))
@@ -4621,6 +4221,8 @@ def _run_native_installation_worker(plan: dict):
             raise RuntimeError("CRITICAL_STEP_FAILED: /etc/hostname is missing or empty on target filesystem.")
         if not has_first_boot:
             raise RuntimeError("CRITICAL_STEP_FAILED: windroid-first-boot.py is missing or not executable on target.")
+        if not has_state_mod:
+            raise RuntimeError("CRITICAL_STEP_FAILED: windroid_state.py is missing on target.")
         if not has_shell_runner:
             raise RuntimeError("CRITICAL_STEP_FAILED: windroid-shell-runner.sh is missing or not executable on target.")
         if not has_first_boot_svc:

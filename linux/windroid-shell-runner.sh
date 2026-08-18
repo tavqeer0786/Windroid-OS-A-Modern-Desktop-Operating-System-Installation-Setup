@@ -52,67 +52,18 @@ while true; do
         RUNTIME_MODE=$(cat /etc/windroid/runtime-mode | tr -d ' \n\r')
     fi
 
-    # 2. Authoritative Native State Evaluation via Python Validator
+    # 2. Authoritative Native State Evaluation via windroid_state
     STATE_EVAL=$(python3 -c "
-import json, os, re, subprocess
-
-P_FILE = '/var/lib/windroid/installer-state.json'
-B_FILE = '/var/lib/windroid/installation-state.json'
-VALID_STATES = ['INSTALLER', 'INSTALLATION_IN_PROGRESS', 'INSTALLATION_COMPLETE', 'OOBE_PENDING', 'OOBE_IN_PROGRESS', 'OOBE_COMPLETE', 'DESKTOP_READY', 'FAILED']
-
-def load_data(filepath):
-    if not os.path.exists(filepath):
-        return None
-    try:
-        with open(filepath, 'r', encoding='utf-8') as f:
-            data = json.load(f)
-        if isinstance(data, dict) and data.get('version') == 'windroid-installer-state-v1' and data.get('state') in VALID_STATES:
-            return data
-    except Exception:
-        pass
-    return None
-
-p_data = load_data(P_FILE)
-b_data = load_data(B_FILE)
-
-chosen_data = None
-if p_data and b_data:
-    p_gen = int(p_data.get('generation', 0) or 0)
-    b_gen = int(b_data.get('generation', 0) or 0)
-    chosen_data = b_data if b_gen > p_gen else p_data
-elif p_data:
-    chosen_data = p_data
-elif b_data:
-    chosen_data = b_data
-
-if not chosen_data:
-    if not os.path.exists(P_FILE) and not os.path.exists(B_FILE):
-        print('MISSING|none|no')
-    else:
-        print('CORRUPT|none|no')
-    exit(0)
-
-state = chosen_data.get('state', 'INVALID')
-u_cfg = chosen_data.get('userConfig') or {}
-username = str(u_cfg.get('username', '')).strip()
-
-user_ok = 'no'
-if username and username not in ['root', 'user', 'windroid-oobe']:
-    res = subprocess.run(['getent', 'passwd', username], stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
-    if res.returncode == 0 and res.stdout.strip():
-        parts = res.stdout.strip().split(':')
-        if len(parts) >= 7:
-            try:
-                uid = int(parts[2])
-                home_dir = parts[5]
-                if (uid >= 1000 or username == 'root') and os.path.exists(home_dir):
-                    user_ok = 'yes'
-            except Exception:
-                pass
-        elif os.path.exists(f'/home/{username}'):
-            user_ok = 'yes'
-
-print(f'{state}|{username}|{user_ok}')
+import sys, os
+for d in ['/usr/lib/windroid', '/usr/bin', os.path.dirname(os.path.abspath('$0')), '/linux']:
+    if os.path.exists(d) and d not in sys.path:
+        sys.path.insert(0, d)
+try:
+    import windroid_state
+    state, user, ok = windroid_state.eval_shell_state()
+    print(f'{state}|{user}|{ok}')
+except Exception as e:
+    print('ERROR|none|no')
 " 2>/dev/null || echo "ERROR|none|no")
 
     NATIVE_STATE=$(echo "$STATE_EVAL" | cut -d'|' -f1)
@@ -195,13 +146,7 @@ print(f'{state}|{username}|{user_ok}')
             # Verify Native System Bridge on 127.0.0.1:4174 (Authoritatively managed by systemd windroid-bridge.service)
             echo "[Windroid OS] Verifying Native System Bridge on 127.0.0.1:4174..." >> "$SHELL_LOG"
             BRIDGE_READY=0
-            for i in $(seq 1 15); do
-                if command -v systemctl >/dev/null 2>&1; then
-                    if ! systemctl is-active --quiet windroid-bridge.service 2>/dev/null; then
-                        systemctl start windroid-bridge.service 2>/dev/null || sudo systemctl start windroid-bridge.service 2>/dev/null || true
-                    fi
-                fi
-
+            for i in $(seq 1 20); do
                 if python3 -c "import urllib.request; urllib.request.urlopen('http://127.0.0.1:4174/api/health', timeout=1)" >/dev/null 2>&1; then
                     BRIDGE_READY=1
                     break
